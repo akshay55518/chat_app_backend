@@ -19,6 +19,19 @@ class CreateConversationView(APIView):
 
         data = serializer.validated_data
 
+        if data["type"] == "dm" and len(data["user_ids"]) == 1:
+            target_user_id = data["user_ids"][0]
+            # Find existing DM with this user
+            existing_dm = Conversation.objects.filter(
+                type="dm",
+                participants__user=request.user
+            ).filter(
+                participants__user_id=target_user_id
+            ).distinct().first()
+
+            if existing_dm:
+                return Response(ConversationSerializer(existing_dm).data)
+
         conversation = Conversation.objects.create(
             type=data["type"],
             name=data.get("name")

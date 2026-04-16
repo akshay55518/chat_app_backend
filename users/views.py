@@ -84,4 +84,4 @@ class UserSearchView(ListAPIView):
         return User.objects.filter(
             Q(email__icontains=query) |
             Q(full_name__icontains=query)
-        )[:20]
+        ).exclude(id=self.request.user.id)[:20]
