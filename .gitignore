@@ -1,0 +1,27 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environments
+venv/
+.venv/
+env/
+.env
+db.sqlite3
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+
+# Logs
+*.log
+
+# Static/Media for development
+staticfiles/
+media/
+
+# OS files
+.DS_Store
+Thumbs.db
