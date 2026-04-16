@@ -32,7 +32,29 @@ class ChatConsumer(AsyncWebsocketConsumer):
         print(f"[WS CONNECT] Channel: {self.channel_name} | User: {user.email}")
         await self.accept()
 
+        # broadcast online status
+        await self.channel_layer.group_send(
+            self.room_group_name,
+            {
+                "type": "user_status",
+                "user": user.email,
+                "status": "online"
+            }
+        )
+
     async def disconnect(self, close_code):
+        user = self.scope.get("user")
+        if user and user.is_authenticated:
+            # broadcast offline status
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {
+                    "type": "user_status",
+                    "user": user.email,
+                    "status": "offline"
+                }
+            )
+
         await self.channel_layer.group_discard(
             self.room_group_name,
             self.channel_name
@@ -44,10 +66,26 @@ class ChatConsumer(AsyncWebsocketConsumer):
         except Exception:
             return
 
-        message_text = data.get("message", "")
+        message_text = data.get("message")
+        msg_type = data.get("type", "message")
         user = self.scope.get("user")
 
-        if not message_text or not user:
+        if not user:
+            return
+
+        if msg_type == "ping":
+            # Someone wants to know who is online, broadcast our status back
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {
+                    "type": "user_status",
+                    "user": user.email,
+                    "status": "online"
+                }
+            )
+            return
+
+        if not message_text:
             return
 
         # persist message
@@ -70,10 +108,18 @@ class ChatConsumer(AsyncWebsocketConsumer):
     async def chat_message(self, event):
         print(f"[WS BROADCAST] Sending to {self.channel_name} | Content: {event['message']}")
         await self.send(text_data=json.dumps({
+            "type": "message",
             "message": event["message"],
             "user": event["user"],
             "message_id": event["message_id"],
             "created_at": event["created_at"],
+        }))
+
+    async def user_status(self, event):
+        await self.send(text_data=json.dumps({
+            "type": "user_status",
+            "user": event["user"],
+            "status": event["status"]
         }))
 
     # ---------------- DB OPERATIONS ---------------- #
