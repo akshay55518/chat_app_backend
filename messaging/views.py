@@ -24,12 +24,16 @@ class SendMessageView(APIView):
 
     def post(self, request, conversation_id):
         conversation = get_object_or_404(Conversation, id=conversation_id)
+        content = request.data.get("content", "")
+        image_url = request.data.get("image_url")
+        message_type = "image" if image_url else "text"
 
         message = Message.objects.create(
             conversation=conversation,
             sender=request.user,
-            content=request.data.get("content"),
-            type="text",
+            content=content,
+            type=message_type,
+            media_url=image_url if image_url else None,
         )
 
         return Response(MessageSerializer(message).data, status=201)

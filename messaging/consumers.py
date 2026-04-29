@@ -66,7 +66,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
         except Exception:
             return
 
-        message_text = data.get("message")
+        message_text = data.get("message", "")
+        image_url = data.get("image_url")
         msg_type = data.get("type", "message")
         user = self.scope.get("user")
 
@@ -85,11 +86,16 @@ class ChatConsumer(AsyncWebsocketConsumer):
             )
             return
 
-        if not message_text:
+        if not message_text and not image_url:
             return
 
         # persist message
-        message_obj = await self.save_message(user.id, self.conversation_id, message_text)
+        message_obj = await self.save_message(
+            user.id,
+            self.conversation_id,
+            message_text,
+            image_url=image_url
+        )
         print(f"[WS RECEIVE] From: {user.email} | Content: {message_text}")
 
         # broadcast
@@ -102,6 +108,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 "user": message_obj["sender"],
                 "message_id": message_obj["id"],
                 "created_at": message_obj["created_at"],
+                "message_type": message_obj["type"],
+                "image_url": message_obj["image_url"],
             }
         )
 
@@ -113,6 +121,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
             "user": event["user"],
             "message_id": event["message_id"],
             "created_at": event["created_at"],
+            "message_type": event.get("message_type", "text"),
+            "image_url": event.get("image_url"),
         }))
 
     async def user_status(self, event):
@@ -132,14 +142,15 @@ class ChatConsumer(AsyncWebsocketConsumer):
         ).exists()
 
     @database_sync_to_async
-    def save_message(self, user_id, conversation_id, content):
+    def save_message(self, user_id, conversation_id, content, image_url=None):
         from messaging.models import Message
 
         message = Message.objects.create(
             sender_id=user_id,
             conversation_id=conversation_id,
             content=content,
-            type="text",
+            type="image" if image_url else "text",
+            media_url=image_url if image_url else None,
         )
 
         return {
@@ -147,4 +158,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
             "content": message.content,
             "sender": message.sender.email,
             "created_at": message.created_at.isoformat(),
+            "type": message.type,
+            "image_url": message.media_url,
         }
